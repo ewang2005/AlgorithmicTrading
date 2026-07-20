@@ -61,11 +61,11 @@ Coinbase WebSocket
 
 ## Features
 
-- **Live market data** — connects to Coinbase WebSocket feed and streams real completed trades for BTC-USD, ETH-USD, and SOL-USD
-- **Real-time OHLCV aggregation** — Apache Flink tumbling window queries aggregate raw ticks into 1-minute candles
-- **Multi-indicator confluence strategy** — trading signals require SMA, EMA, and RSI to confirm before firing, reducing false positives
-- **Paper portfolio simulation** — simulates trade execution against a virtual $10,000 portfolio with P&L tracking
-- **Discord alerts** — real-time BUY/SELL notifications with price, indicators, quantity, and P&L
+- **Live market data** - connects to Coinbase WebSocket feed and streams real completed trades for BTC-USD, ETH-USD, and SOL-USD
+- **Real-time OHLCV aggregation** - Apache Flink tumbling window queries aggregate raw ticks into 1-minute candles
+- **Multi-indicator confluence strategy** - trading signals require SMA, EMA, and RSI to confirm before firing, reducing false positives
+- **Paper portfolio simulation** - simulates trade execution against a virtual $10,000 portfolio with P&L tracking
+- **Discord alerts** - real-time BUY/SELL notifications with price, indicators, quantity, and P&L
 
 ---
 
@@ -91,7 +91,7 @@ The consumer implements a **multi-indicator confluence strategy** combining thre
 - RSI is above 30 (not oversold)
 - An open position exists in that symbol
 
-All three conditions must be met simultaneously before a trade executes — this is known as **signal confirmation** or **confluence trading**.
+All three conditions must be met simultaneously before a trade executes - this is known as **signal confirmation** or **confluence trading**.
 
 ---
 
