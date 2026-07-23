@@ -1,2 +1,5 @@
 kafka-python
 requests
+python-dotenv
+scikit-learn
+numpy
