@@ -34,10 +34,10 @@ Coinbase WebSocket
 └───────┬───────┘
         │
         ▼
-┌────────────────────┐
-│   Consumer / ML    │  Random Forest signal engine — SMA + EMA + RSI features
-│   Signal Engine    │  + ML confidence gating via signal_model.pkl
-└────────┬───────────┘
+┌───────────────────┐
+│   Consumer / ML   │  Random Forest signal engine — SMA + EMA + RSI features
+│   Signal Engine   │  + ML confidence gating via signal_model.pkl
+└───────┬───────────┘
         │
         ▼
 ┌───────────────┐
