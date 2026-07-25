@@ -54,7 +54,7 @@ Coinbase WebSocket
 | Stream Broker | Apache Redpanda (Kafka-compatible) |
 | Stream Processor | Apache Flink 1.18 |
 | Producer | Python, websocket-client, kafka-python |
-| Consumer / Signal Engine | Python, kafka-python, scikit-learn, requests |
+| Consumer / Signal Engine | Python, kafka-python, scikit-learn, pandas, requests |
 | ML Model | Random Forest Classifier (scikit-learn) |
 | Model Training | pandas, numpy, scikit-learn |
 | Historical Data | Coinbase REST API (6 months, 1h candles) |
@@ -130,7 +130,8 @@ AlgorithmicTrading/
 │   ├── requirements.txt
 │   └── signal_model.pkl      # Trained Random Forest model
 ├── flink/
-│   └── Dockerfile            # Flink image with Kafka connector JAR
+│   ├── Dockerfile            # Flink image with Kafka connector JAR
+│   └── init.sql              # Auto-initializes Flink tables on startup
 ├── ml/
 │   ├── BTC_USD_1h.csv        # Historical hourly candles (BTC)
 │   ├── ETH_USD_1h.csv        # Historical hourly candles (ETH)
@@ -161,7 +162,7 @@ AlgorithmicTrading/
 
 ### 1. Clone the repository
 ```bash
-git clone https://github.com/yourusername/AlgorithmicTrading.git
+git clone https://github.com/ewang2005/AlgorithmicTrading.git
 cd AlgorithmicTrading
 ```
 
@@ -192,66 +193,9 @@ cp signal_model.pkl ../consumer/signal_model.pkl
 docker compose up -d --build
 ```
 
-### 5. Set up Flink tables
-Attach to the SQL client:
-```bash
-docker attach sql-client
-```
+That's it. The Flink tables are created and the INSERT job is started automatically via `flink/init.sql` on startup — no manual SQL entry required.
 
-Run the following SQL in order:
-
-```sql
-SET 'table.local-time-zone' = 'UTC';
-
-CREATE TABLE real_market_trades (
-    trade_id        BIGINT,
-    symbol          STRING,
-    price           DOUBLE,
-    volume          DOUBLE,
-    side            STRING,
-    trade_time      STRING,
-    proc_time       AS PROCTIME()
-) WITH (
-    'connector' = 'kafka',
-    'topic' = 'real-market-trades',
-    'properties.bootstrap.servers' = 'redpanda-1:29092,redpanda-2:29093',
-    'scan.startup.mode' = 'latest-offset',
-    'format' = 'json'
-);
-
-CREATE TABLE ohlcv_1min (
-    symbol          STRING,
-    window_start    TIMESTAMP(3),
-    window_end      TIMESTAMP(3),
-    `open`          DOUBLE,
-    high            DOUBLE,
-    low             DOUBLE,
-    `close`         DOUBLE,
-    volume          DOUBLE
-) WITH (
-    'connector' = 'kafka',
-    'topic' = 'ohlcv-1min',
-    'properties.bootstrap.servers' = 'redpanda-1:29092,redpanda-2:29093',
-    'format' = 'json'
-);
-
-INSERT INTO ohlcv_1min
-SELECT
-    symbol,
-    TUMBLE_START(proc_time, INTERVAL '1' MINUTE) AS window_start,
-    TUMBLE_END(proc_time, INTERVAL '1' MINUTE)   AS window_end,
-    FIRST_VALUE(price)  AS `open`,
-    MAX(price)          AS high,
-    MIN(price)          AS low,
-    LAST_VALUE(price)   AS `close`,
-    SUM(volume)         AS volume
-FROM real_market_trades
-GROUP BY
-    symbol,
-    TUMBLE(proc_time, INTERVAL '1' MINUTE);
-```
-
-### 6. Verify the pipeline
+### 5. Verify the pipeline
 ```bash
 # Check producer is streaming
 docker logs producer -f

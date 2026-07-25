@@ -3,13 +3,21 @@ import os
 import pickle
 import requests
 import numpy as np
+import pandas as pd
 import sys
 from kafka import KafkaConsumer
 from collections import defaultdict
 from dotenv import load_dotenv
 
+
 load_dotenv()
 
+FEATURES = [
+    'sma_5', 'sma_20', 'ema_5', 'ema_20',
+    'rsi_14', 'momentum', 'vol_change',
+    'price_vs_sma5', 'price_vs_sma20', 'sma_cross',
+    'high_low_range', 'close_vs_high', 'close_vs_low', 'rel_volume'
+]
 BOOTSTRAP_SERVERS = os.getenv('BOOTSTRAP_SERVERS', 'localhost:9092').split(',')
 DISCORD_WEBHOOK_URL = os.getenv('DISCORD_WEBHOOK_URL')
 TOPIC = 'ohlcv-1min'
@@ -120,7 +128,8 @@ def simulate_trade(candle):
         print(f"[{symbol}] Building history... ({len(price_history[symbol])}/20)", flush=True)
         return
 
-    prob = model.predict_proba([features])[0][1]
+    features_df = pd.DataFrame([features], columns=FEATURES)
+    prob = model.predict_proba(features_df)[0][1]
     position = portfolio['positions'].get(symbol)
 
     sma_5  = compute_sma(price_history[symbol], 5)

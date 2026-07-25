@@ -1,5 +1,3 @@
-version: '3.8'
-
 networks:
   AlgoTrading:
     driver: bridge
@@ -131,14 +129,14 @@ services:
     container_name: sql-client
     depends_on:
       - jobmanager
-    command: /opt/flink/bin/sql-client.sh
+    command: bash -c "sleep 15 && /opt/flink/bin/sql-client.sh -f /opt/flink/sql/init.sql"
+    volumes:
+      - ./flink/init.sql:/opt/flink/sql/init.sql
     environment:
       - |
         FLINK_PROPERTIES=
         jobmanager.rpc.address: jobmanager
         rest.address: jobmanager
-    tty: true
-    stdin_open: true
     networks:
       - AlgoTrading
   
@@ -149,11 +147,13 @@ services:
     depends_on:
       - redpanda-1
       - redpanda-2
+    env_file:
+      - .env
     environment:
       BOOTSTRAP_SERVERS: redpanda-1:29092,redpanda-2:29093
     networks:
       - AlgoTrading
-      
+  
   # CANDLE CONSUMER
   consumer:
     build: ./consumer
@@ -161,8 +161,10 @@ services:
     depends_on:
       - redpanda-1
       - redpanda-2
+    env_file:
+      - .env
     environment:
       BOOTSTRAP_SERVERS: redpanda-1:29092,redpanda-2:29093
-      DISCORD_WEBHOOK_URL: https://discord.com/api/webhooks/1528597094582194276/HfRBzBsEDEeDPK5drhbR9W75aow-DdnAlfl4JNVmS4G50ru6XLeC9KobBfHqPIyQe3M2
+      DISCORD_WEBHOOK_URL: ${DISCORD_WEBHOOK_URL}
     networks:
       - AlgoTrading
