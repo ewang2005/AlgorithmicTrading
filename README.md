@@ -1,4 +1,4 @@
-# AlgoTrader — Real-Time Crypto Paper Trading System
+# AlgoTrader - Real-Time Crypto Paper Trading System
 
 A real-time algorithmic paper trading system that streams live cryptocurrency data from Coinbase, processes it with Apache Flink, generates trade signals using a Random Forest ML model trained on historical OHLCV data, and delivers alerts to Discord.
 
