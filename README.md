@@ -1,4 +1,4 @@
-# AlgoTrader — Real-Time Crypto Paper Trading System
+# AlgoTrader - Real-Time Crypto Paper Trading System
 
 A real-time algorithmic paper trading system that streams live cryptocurrency data from Coinbase, processes it with Apache Flink, generates trade signals using a Random Forest ML model trained on historical OHLCV data, and delivers alerts to Discord.
 
@@ -34,10 +34,10 @@ Coinbase WebSocket
 └───────┬───────┘
         │
         ▼
-┌────────────────────┐
-│   Consumer / ML    │  Random Forest signal engine — SMA + EMA + RSI features
-│   Signal Engine    │  + ML confidence gating via signal_model.pkl
-└────────┬───────────┘
+┌───────────────────┐
+│   Consumer / ML   │  Random Forest signal engine — SMA + EMA + RSI features
+│   Signal Engine   │  + ML confidence gating via signal_model.pkl
+└───────┬───────────┘
         │
         ▼
 ┌───────────────┐
@@ -65,12 +65,12 @@ Coinbase WebSocket
 
 ## Features
 
-- **Live market data** — connects to Coinbase WebSocket feed and streams real completed trades for BTC-USD, ETH-USD, and SOL-USD
-- **Real-time OHLCV aggregation** — Apache Flink tumbling window queries aggregate raw ticks into 1-minute candles
-- **ML-powered signal generation** — a Random Forest classifier trained on 14 engineered features scores each candle with a buy probability; trades are only executed when both technical conditions and ML confidence align
-- **Multi-indicator confluence strategy** — SMA, EMA, and RSI must confirm the signal direction before a trade fires, reducing false positives
-- **Paper portfolio simulation** — simulates trade execution against a virtual $10,000 portfolio with P&L tracking
-- **Discord alerts** — real-time BUY/SELL notifications with price, indicators, ML confidence score, quantity, and P&L
+- **Live market data** - connects to Coinbase WebSocket feed and streams real completed trades for BTC-USD, ETH-USD, and SOL-USD
+- **Real-time OHLCV aggregation** - Apache Flink tumbling window queries aggregate raw ticks into 1-minute candles
+- **ML-powered signal generation** - a Random Forest classifier trained on 14 engineered features scores each candle with a buy probability; trades are only executed when both technical conditions and ML confidence align
+- **Multi-indicator confluence strategy** - SMA, EMA, and RSI must confirm the signal direction before a trade fires, reducing false positives
+- **Paper portfolio simulation** - simulates trade execution against a virtual $10,000 portfolio with P&L tracking
+- **Discord alerts** - real-time BUY/SELL notifications with price, indicators, ML confidence score, quantity, and P&L
 
 ---
 
