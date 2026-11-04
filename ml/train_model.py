@@ -1,7 +1,6 @@
 import pandas as pd
 import numpy as np
 from sklearn.ensemble import RandomForestClassifier
-from sklearn.model_selection import train_test_split
 from sklearn.metrics import classification_report
 import pickle
 import os
@@ -39,7 +38,9 @@ def engineer_features(df):
     df['rel_volume']     = df['volume'] / df['volume_sma']  # relative volume spike
     return df
 
-def label_signals(df, forward_periods=3, threshold=0.005):
+FORWARD_PERIODS = 3
+
+def label_signals(df, forward_periods=FORWARD_PERIODS, threshold=0.005):
     # 0.5% move in next 3 hours instead of 1% in 5 hours
     df['future_return'] = df['close'].shift(-forward_periods) / df['close'] - 1
     df['label'] = (df['future_return'] > threshold).astype(int)
@@ -61,22 +62,33 @@ for symbol in ['BTC_USD', 'ETH_USD', 'SOL_USD']:
     all_dfs.append(df)
 
 data = pd.concat(all_dfs).dropna().reset_index(drop=True)
+data['ts'] = pd.to_datetime(data['timestamp'])
 
 print(f"Total samples: {len(data)}")
 print(f"Label distribution:\n{data['label'].value_counts()}")
 
-X = data[FEATURES]
-y = data['label']
+# Time-based split across ALL coins at one cutoff date.
+# Splitting the concatenated frame by row position would put one coin (SOL)
+# entirely in the test set while the other coins' rows from the same dates sit
+# in training, and crypto prices move together, so that leaks the test period.
+# The gap keeps training labels (which look FORWARD_PERIODS hours ahead) from
+# overlapping the test period.
+cutoff = data['ts'].quantile(0.8)
+train = data[data['ts'] < cutoff - pd.Timedelta(hours=FORWARD_PERIODS)]
+test  = data[data['ts'] >= cutoff]
 
-X_train, X_test, y_train, y_test = train_test_split(
-    X, y, test_size=0.2, shuffle=False  # time-based split, no shuffling
-)
+X_train, y_train = train[FEATURES], train['label']
+X_test,  y_test  = test[FEATURES],  test['label']
+
+print(f"\nTrain: {len(train)} rows (before {cutoff - pd.Timedelta(hours=FORWARD_PERIODS)})")
+print(f"Test:  {len(test)} rows (from {cutoff})")
+print(f"Test base rate of buy label: {y_test.mean():.1%}")
 
 model = RandomForestClassifier(n_estimators=100, random_state=42, class_weight='balanced')
 model.fit(X_train, y_train)
 
 y_pred = model.predict(X_test)
-print("\nModel Performance:")
+print("\nModel Performance (held-out time period):")
 print(classification_report(y_test, y_pred))
 
 # feature importance
