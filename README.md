@@ -58,6 +58,7 @@ Coinbase WebSocket
 | ML Model | Random Forest Classifier (scikit-learn) |
 | Model Training | pandas, numpy, scikit-learn |
 | Historical Data | Coinbase REST API (6 months, 1h candles) |
+| Testing | pytest |
 | Containerization | Docker, Docker Compose |
 | Alerts | Discord Webhooks |
 
@@ -68,9 +69,10 @@ Coinbase WebSocket
 - **Live market data** - connects to Coinbase WebSocket feed and streams real completed trades for BTC-USD, ETH-USD, and SOL-USD
 - **Real-time OHLCV aggregation** - Apache Flink tumbling window queries aggregate raw ticks into 1-minute candles
 - **ML-powered signal generation** - a Random Forest classifier trained on 14 engineered features scores each candle with a buy probability; trades are only executed when both technical conditions and ML confidence align
-- **Multi-indicator confluence strategy** - SMA, EMA, and RSI must confirm the signal direction before a trade fires, reducing false positives
+- **Multi-indicator confluence strategy** - SMA, EMA, and RSI must all confirm the signal direction before a trade fires
 - **Paper portfolio simulation** - simulates trade execution against a virtual $10,000 portfolio with P&L tracking
 - **Discord alerts** - real-time BUY/SELL notifications with price, indicators, ML confidence score, quantity, and P&L
+- **Unit-tested signal engine** - 28 pytest tests cover indicator math, feature engineering, trade logic, and model/feature consistency
 
 ---
 
@@ -102,8 +104,19 @@ A candle is labeled a **buy opportunity (1)** if the close price rises more than
 ### Training Details
 
 - **Model:** `RandomForestClassifier(n_estimators=100, class_weight='balanced')`
-- **Split:** Chronological train/test (80/20) — no shuffling to prevent data leakage
+- **Split:** Time-based, across all three coins at a single cutoff date: the model trains on everything before the cutoff and is tested on the final ~20% of the timeline (from Jun 15, 2026). A 3-hour gap separates the two sets because each label looks 3 candles ahead. Splitting by row position instead would leak information, since BTC, ETH, and SOL move together.
 - **Class imbalance:** Handled via `class_weight='balanced'`; confidence threshold set low (~0.1) at inference time due to natural class imbalance in financial data
+
+### Model Performance
+
+Evaluated on the held-out time period (2,577 candles; 10,293 used for training). About 22% of candles are buy opportunities, so that is the baseline a random guess would hit.
+
+| Class | Precision | Recall | F1 |
+|---|---|---|---|
+| Buy (1) | 0.26 | 0.14 | 0.19 |
+| No buy (0) | 0.78 | 0.88 | 0.83 |
+
+Overall accuracy is 0.72. **This is a weak signal**: buy-class precision is only modestly above the 22% base rate, which is typical for short-horizon crypto price prediction. For that reason the model is used as a confidence filter alongside the SMA/EMA/RSI rules, not as a standalone predictor. The value of this project is the real-time streaming, serving, and testing infrastructure around the model. See Future Improvements for better modeling and a proper backtest.
 
 ### Trade Execution Logic
 
@@ -143,10 +156,13 @@ AlgorithmicTrading/
 │   ├── main.py               # Coinbase WebSocket → Redpanda producer
 │   ├── Dockerfile
 │   └── requirements.txt
+├── tests/
+│   └── test_consumer.py      # Unit tests for the signal engine
 ├── .env                      # Local secrets (gitignored)
 ├── .env.example              # Environment variable template
 ├── .gitignore
 ├── docker-compose.yml
+├── pytest.ini
 └── README.md
 ```
 
@@ -179,13 +195,12 @@ COINBASE_API_SECRET=your_coinbase_api_secret_here
 
 ### 3. Train the ML model (optional — pre-trained model included)
 
-If you want to retrain on fresh data:
+If you want to retrain on fresh data, run these from the repo root:
 ```bash
-cd ml
-pip install -r ../consumer/requirements.txt
-python fetch_data.py       # downloads 180 days of hourly OHLCV data
-python train_model.py      # trains the Random Forest and saves signal_model.pkl
-cp signal_model.pkl ../consumer/signal_model.pkl
+pip install -r consumer/requirements.txt
+python ml/fetch_data.py       # downloads 180 days of hourly OHLCV data
+python ml/train_model.py      # trains the Random Forest and saves ml/signal_model.pkl
+cp ml/signal_model.pkl consumer/signal_model.pkl   # Windows: copy ml\signal_model.pkl consumer\signal_model.pkl
 ```
 
 ### 4. Start the stack
@@ -208,6 +223,21 @@ docker logs consumer -f
 ```
 
 After ~20 candles of history are built, you should see ML confidence scores alongside BUY/SELL signals in the logs and Discord.
+
+---
+
+## Running the Tests
+
+```bash
+pip install pytest
+pytest
+```
+
+The 28 tests cover:
+- Indicator math (SMA, EMA, RSI) and feature engineering
+- The BUY/SELL logic in `simulate_trade`, run against a stub model so no Kafka or model file is needed
+- Discord alert delivery
+- A check that the trained model's feature names and order match the consumer's `FEATURES`
 
 ---
 
