@@ -24,9 +24,7 @@ TOPIC = 'ohlcv-1min'
 MODEL_PATH = os.getenv('MODEL_PATH', 'signal_model.pkl')
 CONFIDENCE_THRESHOLD = 0.1   # low threshold due to class imbalance in training data (precision ~0.29)
 
-print("Script starting...", flush=True)
-print(f"MODEL_PATH: {MODEL_PATH}", flush=True)
-print(f"BOOTSTRAP_SERVERS: {BOOTSTRAP_SERVERS}", flush=True)
+model = None  # loaded in main(); tests can assign a stub model here
 
 portfolio = {
     'cash': 10000.0,
@@ -72,7 +70,8 @@ def compute_rsi(values, period=14):
         return 100
     return 100 - (100 / (1 + avg_gain / avg_loss))
 
-def get_features(symbol, close, high, low, volume):
+def get_features(symbol, close, high, low, volume,
+                 price_history=price_history, volume_history=volume_history):
     closes  = price_history[symbol]
     volumes = volume_history[symbol]
 
@@ -149,7 +148,7 @@ def simulate_trade(candle):
         portfolio['cash'] -= cost
         portfolio['positions'][symbol] = {'qty': qty, 'entry_price': close}
         msg = (
-            f"🟢 **BUY** `{symbol}` *(ML confidence: {prob:.0%})*\n"
+            f"**BUY** `{symbol}` *(ML confidence: {prob:.0%})*\n"
             f"Price: `${close:,.2f}` | SMA: `${sma_5:,.2f}` | RSI: `{rsi_14:.1f}`\n"
             f"Qty: `{qty}` | Cost: `${cost:,.2f}`\n"
             f"Cash remaining: `${portfolio['cash']:,.2f}`\n"
@@ -166,7 +165,7 @@ def simulate_trade(candle):
         portfolio['cash'] += proceeds
         del portfolio['positions'][symbol]
         msg = (
-            f"🔴 **SELL** `{symbol}` *(ML confidence: {prob:.0%})*\n"
+            f"**SELL** `{symbol}` *(ML confidence: {prob:.0%})*\n"
             f"Price: `${close:,.2f}` | SMA: `${sma_5:,.2f}` | RSI: `{rsi_14:.1f}`\n"
             f"Qty: `{qty}` | Proceeds: `${proceeds:,.2f}`\n"
             f"P&L: `${pnl:+,.2f}`\n"
@@ -179,31 +178,41 @@ def simulate_trade(candle):
     else:
         print(f"[{symbol}] HOLD | Conf: {prob:.2f} | Buy: {buy_signal} | Sell: {sell_signal}", flush=True)
 
-# load model first
-try:
-    with open(MODEL_PATH, 'rb') as f:
-        model = pickle.load(f)
-    print("Model loaded successfully", flush=True)
-except Exception as e:
-    print(f"Failed to load model: {e}", flush=True)
-    raise
+def main():
+    global model
+    print("Script starting...", flush=True)
+    print(f"MODEL_PATH: {MODEL_PATH}", flush=True)
+    print(f"BOOTSTRAP_SERVERS: {BOOTSTRAP_SERVERS}", flush=True)
 
-# then create kafka consumer
-try:
-    consumer = KafkaConsumer(
-        TOPIC,
-        bootstrap_servers=BOOTSTRAP_SERVERS,
-        value_deserializer=lambda m: json.loads(m.decode('utf-8')),
-        auto_offset_reset='earliest',
-        group_id='paper-trader-ml-v2'
-    )
-    print("Kafka consumer created successfully", flush=True)
-except Exception as e:
-    print(f"Failed to create Kafka consumer: {e}", flush=True)
-    raise
+    # load model first
+    try:
+        with open(MODEL_PATH, 'rb') as f:
+            model = pickle.load(f)
+        print("Model loaded successfully", flush=True)
+    except Exception as e:
+        print(f"Failed to load model: {e}", flush=True)
+        raise
 
-print(f"Paper trader started. Listening to '{TOPIC}'...", flush=True)
+    # then create kafka consumer
+    try:
+        consumer = KafkaConsumer(
+            TOPIC,
+            bootstrap_servers=BOOTSTRAP_SERVERS,
+            value_deserializer=lambda m: json.loads(m.decode('utf-8')),
+            auto_offset_reset='earliest',
+            group_id='paper-trader-ml-v2'
+        )
+        print("Kafka consumer created successfully", flush=True)
+    except Exception as e:
+        print(f"Failed to create Kafka consumer: {e}", flush=True)
+        raise
 
-for message in consumer:
-    candle = message.value
-    simulate_trade(candle)
+    print(f"Paper trader started. Listening to '{TOPIC}'...", flush=True)
+
+    for message in consumer:
+        candle = message.value
+        simulate_trade(candle)
+
+
+if __name__ == "__main__":
+    main()

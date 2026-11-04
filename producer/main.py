@@ -13,7 +13,7 @@ producer = KafkaProducer(
 topic_name = 'real-market-trades'
 
 # when coinbase sends back a trade we check if the type is match to make sure it's a trade and not noise
-# we then create a payload (dictionary) with all the trade information and sedn it to redpanda and print it out to console
+# we then create a payload (dictionary) with all the trade information and send it to redpanda and print it out to console
 def on_message(ws, message):
 
     try:
